@@ -1,0 +1,74 @@
+# This is an automation that helps synchroizing the thermostat temperature settings through GUI (input_number.solltemp_kuche) or the M5Stick button
+# If the temperature setting is changed thru either GUI or M5Stick, then we wait 10 seconds and then update the other one
+
+# When M5Stick connects it will take thermostat setting from GUI 
+
+
+
+
+alias: AC_KuecheSetTempM5Stick
+description: ""
+triggers:
+  - trigger: state
+    entity_id:
+      - number.m5stickclimatekitchen
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 10
+    id: trig_M5stick
+  - trigger: state
+    entity_id:
+      - input_number.solltemp_kuche
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 10
+    id: trig_Solltemp
+  - trigger: state
+    entity_id: binary_sensor.m5stickclimate_button_a
+    from: unavailable
+    id: trig_M5Stickconnected
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - trig_M5stick
+          - condition: template
+            value_template: >-
+              {{ states('number.m5stickclimatekitchen')| float != 
+              states('input_number.solltemp_kuche') | float }}
+        sequence:
+          - action: input_number.set_value
+            metadata: {}
+            data:
+              value: " {{ states('number.m5stickclimatekitchen')|float(20)  }}"
+            target:
+              entity_id: input_number.solltemp_kuche
+      - conditions:
+          - condition: trigger
+            id:
+              - trig_Solltemp
+          - condition: template
+            value_template: >-
+              {{ states('number.m5stickclimatekitchen')| float != 
+              states('input_number.solltemp_kuche') | float }}
+        sequence:
+          - target:
+              entity_id: number.m5stickclimatekitchen
+            data:
+              value: " {{ states('input_number.solltemp_kuche')|float(20)  }}"
+            action: number.set_value
+      - conditions:
+          - condition: trigger
+            id:
+              - trig_M5Stickconnected
+        sequence:
+          - target:
+              entity_id: number.m5stickclimatekitchen
+            data:
+              value: " {{ states('input_number.solltemp_kuche')|float(20)  }}"
+            action: number.set_value
+mode: single
