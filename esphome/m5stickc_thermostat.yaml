@@ -4,7 +4,7 @@
 
 # The M5Stick front button is used to set desired room temperature, which is displayed on top
 # Actual room temperature (provided by outside sensor) is displayed in 2nd row, followed by CO2 measurement and rssi of the M5Stick
-
+ 
 
 substitutions:
   devicename: "m5stickclimatekitchen"
