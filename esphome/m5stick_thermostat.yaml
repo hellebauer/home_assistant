@@ -3,7 +3,7 @@
 # for the newer M5 sticks some mods will ne needed  
 
 # The M5Stick front button is used to set desired room temperature, which is displayed on top
-# Actual room temperature is displayed in 2nd row, followed by CO2 measurement and rssi of the M5Stick
+# Actual room temperature (provided by outside sensor) is displayed in 2nd row, followed by CO2 measurement and rssi of the M5Stick
 
 
 substitutions:
