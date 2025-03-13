@@ -1,0 +1,255 @@
+
+# This works with HA 2025.2 and the original M5STICKC
+# for the newer M5 sticks some mods will ne needed  
+
+# The M5Stick front button is used to set desired room temperature, which is displayed on top
+# Actual room temperature is displayed in 2nd row, followed by CO2 measurement and rssi of the M5Stick
+
+
+substitutions:
+  devicename: "m5stickclimatekitchen"
+  upper_devicename: M5Stickclimate
+
+esphome:
+  name: $devicename
+  platformio_options:
+    upload_speed: 115200
+
+
+esp32:
+  board: m5stick-c
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "YOURKEY"
+
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+
+captive_portal:
+    
+########################################################################
+
+
+ota:
+  - platform: esphome
+    password: "YOURPASSWORD"
+
+external_components:
+  - source: github://martydingo/esphome-axp192
+    components: [axp192]
+
+
+
+
+
+
+# AXP192 power management - must be present to initialize TFT power on
+# Screen Brightness may be adjusted from 0.0 to 1.0  
+sensor:
+  - platform: axp192
+    model: M5STICKC
+    address: 0x34
+    i2c_id: bus_a
+    id: my_axp
+    update_interval: 30s
+    brightness: 0.5
+    battery_level:
+      name: "M5Stick Battery Level"
+      id: "m5stick_batterylevel"
+    
+
+  - platform: wifi_signal
+    id: wifi_id
+    update_interval: 15s
+
+
+#Below 2 sensors already exist in HA. We now can display them on M5Stick with their "id:"    
+  - platform: homeassistant
+    id: Kitchen_room_temp
+    entity_id: sensor.your_temperature_sensor
+
+  - platform: homeassistant
+    id: officeCO2
+    entity_id: sensor.your_co2_value
+
+# With 160x80 we get white stripes on display.  With 162x82 display looks clean
+display:
+
+  - platform: st7735     #platform soon obsolete
+    model: "INITR_MINI160X80"
+    device_width: 82
+    device_height: 162
+    id: my_display
+    reset_pin: GPIO18
+    cs_pin: GPIO5
+    dc_pin: GPIO23
+    rotation: 0
+
+    col_start: 0
+    row_start: 0
+
+    eight_bit_color: false
+    invert_colors: true
+    use_bgr: true
+
+    update_interval: 0.3s
+
+#display set_temperature, actual temperature, co2 ppm, rssi
+    lambda: |-
+      it.fill(COLOR_OFF);
+      it.printf(40, 0, id(roboto),id(red), TextAlign::TOP_CENTER,"%.0f", (id(temperature).state) ) ;
+      it.printf(40, 50, id(robotosmall),id(green), TextAlign::TOP_CENTER,"%.1f", (id(Kitchen_room_temp).state) ) ;
+      it.printf(40, 115, id(robototiny),id(blue), TextAlign::TOP_CENTER,"%.0f", (id(officeCO2).state) ) ;
+      it.printf(40, 144, id(robotomicro),id(yellow), TextAlign::TOP_CENTER,"%3.0f", (id(wifi_id).state) ) ;
+#      it.print(14, 0, id(roboto),id(red), "M5");
+#      it.print(44, 0, id(roboto),id(red), TextAlign::TOP_CENTER, "M5");
+#      it.print(44, 0, id(roboto),id(red), "%i", temperature);
+
+ 
+
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO37
+      inverted: true
+    name: ${upper_devicename} Button A
+    on_press:
+      then:
+        - light.turn_on: led1
+    on_release:
+      then:
+        - number.increment:
+            id: temperature
+            cycle: true
+        - light.turn_off: led1
+
+
+#play with screen brightness
+  - platform: gpio
+    pin:
+      number: GPIO39
+      inverted: true
+    name: ${upper_devicename} Button B
+    on_press:
+      then:
+        #- light.turn_on: led1
+        - lambda: id(my_axp).set_brightness(0.5);
+    on_release:
+      then:
+        #- light.turn_off: led1
+        - lambda: id(my_axp).set_brightness(1.0);
+
+
+
+# number to step through Temperature range, allow temperature from 16 to 25 degrees Celcius
+
+
+number:
+  - platform: template
+    id: temperature
+    name: $devicename
+    optimistic: true
+    min_value: 16
+    max_value: 25
+    initial_value: 21
+    step: 1
+
+
+
+
+light:
+  - platform: monochromatic
+    output:  builtin_led
+    name: ${upper_devicename} Led
+    id: led1
+
+output:
+  - platform: ledc
+    pin: 10
+    inverted: true
+    id: builtin_led
+
+#remote_transmitter:
+#  - pin:
+#      number: GPIO9
+#    carrier_duty_percent: 50%
+#    id: internal
+
+spi:
+  clk_pin: GPIO13
+  mosi_pin: GPIO15
+
+i2c:
+   - id: bus_a
+     sda: GPIO21
+     scl: GPIO22
+     scan: True
+
+#make sure you got this font where it belongs
+font:
+  - file: "fonts/Roboto-Regular.ttf"
+    id: roboto
+    size: 48
+  - file: "fonts/Roboto-Regular.ttf"
+    id: robotosmall
+    size: 32
+  - file: "fonts/Roboto-Regular.ttf"
+    id: robototiny
+    size: 24
+  - file: "fonts/Roboto-Regular.ttf"
+    id: robotomicro
+    size: 16
+
+
+
+
+color:
+    - id: red
+      red: 100%
+      green: 0%
+      blue: 0%
+    - id: green
+      red: 0%
+      green: 100%
+      blue: 0%
+    - id: blue
+      red: 0%
+      green: 0%
+      blue: 100%
+    - id: yellow
+      red: 100%
+      green: 100%
+      blue: 0%
+
+
+
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+  - platform: sntp
+    id: sntp_time
+
+
+i2s_audio:
+  id: bus_i2s
+  i2s_lrclk_pin: G26
+  i2s_bclk_pin: G0
+
+microphone:
+  - platform: i2s_audio
+    i2s_din_pin: GPIO34
+    i2s_audio_id: bus_i2s
+    adc_type: external
+    pdm: true
+    id: mic
+
